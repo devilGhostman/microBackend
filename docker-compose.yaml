@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./db/:/data/db
+    restart: always
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    restart: always 
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  user:
+    container_name: user
+    build: ./user
+    ports:
+      - '8001:8001'
+    env_file:
+      - ./user/.env.dev
+    volumes:
+      - ./user/src/public:/app/src/public
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      
+  
+  meme:
+    container_name: meme
+    build: ./meme
+    ports:
+      - '8005:8005'
+    env_file:
+      - ./meme/.env.dev
+    volumes:
+      - ./meme/src/public:/app/src/public
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  music:
+    container_name: music
+    build: ./music
+    ports:
+      - '8004:8004'
+    env_file:
+      - ./music/.env.dev
+    volumes:
+      - ./music/src/public:/app/src/public
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  movie:
+    container_name: movie
+    build: ./movie
+    ports:
+      - '8003:8003'
+    env_file:
+      - ./movie/.env.dev
+    volumes:
+      - ./movie/src/public:/app/src/public
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  post:
+    container_name: post
+    build: ./post
+    ports:
+      - '8002:8002'
+    env_file:
+      - ./post/.env.dev
+    volumes:
+      - ./post/src/public:/app/src/public
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy      
+
+  socket:
+    container_name: socket
+    build: ./socket
+    ports:
+      - '8006:8006'
+    env_file:
+      - ./socket/.env.dev
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  gateway:
+    container_name: gateway
+    build: ./gateway
+    ports:
+      - '8000:8000'
+    env_file:
+      - ./gateway/.env.dev
+    depends_on:
+      - user
+      - post
+      - meme
+      - movie
+      - music
+      - socket
+    restart: always
+
+volumes:
+  data:
